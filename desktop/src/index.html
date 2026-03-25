@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Content-Security-Policy"
+    content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' http://localhost:*;" />
+  <title>Skoros</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0A0A0F;
+      --surface: #13131A;
+      --surface2: #1C1C28;
+      --border: #2A2A3A;
+      --primary: #7C3AED;
+      --primary-light: #9D5FFF;
+      --accent: #06B6D4;
+      --success: #10B981;
+      --warning: #F59E0B;
+      --error: #EF4444;
+      --text: #F1F1F5;
+      --text2: #9090A0;
+      --text3: #55556A;
+
+      --tiktok: #FF0050;
+      --instagram: #E1306C;
+      --youtube: #FF0000;
+      --facebook: #1877F2;
+      --twitter: #1DA1F2;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Titlebar drag region for desktop */
+    #titlebar {
+      -webkit-app-region: drag;
+      height: 32px;
+      background: var(--bg);
+      display: none;
+    }
+    .desktop #titlebar { display: flex; align-items: center; padding: 0 16px; }
+    .desktop #titlebar .title { font-size: 13px; color: var(--text3); font-weight: 600; -webkit-app-region: no-drag; }
+
+    main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 0 16px 64px;
+      max-width: 680px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    /* Header */
+    .hero { text-align: center; padding: 48px 0 32px; }
+    .hero h1 { font-size: 52px; font-weight: 800; letter-spacing: -3px; background: linear-gradient(135deg, #fff 30%, #9D5FFF); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .hero p { color: var(--text2); font-size: 15px; margin-top: 8px; }
+
+    /* Platform badges */
+    .platforms { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 32px; }
+    .badge { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 99px; font-size: 12px; font-weight: 600; border: 1px solid; }
+
+    /* Status bar */
+    #status-bar { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; font-size: 13px; color: var(--text2); display: none; margin-bottom: 16px; align-items: center; gap: 8px; }
+    #status-bar.show { display: flex; }
+    .status-dot { width: 8px; height: 8px; border-radius: 4px; background: var(--warning); flex-shrink: 0; }
+    .status-dot.ok { background: var(--success); animation: pulse 2s infinite; }
+    .status-dot.err { background: var(--error); }
+    @keyframes pulse { 0%,100% { opacity:1 } 50% { opacity:.5 } }
+
+    /* Input card */
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 24px; width: 100%; margin-bottom: 16px; }
+    .card-label { font-size: 13px; color: var(--text2); margin-bottom: 10px; }
+
+    .input-row { display: flex; gap: 10px; margin-bottom: 14px; }
+    .url-input {
+      flex: 1; background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 10px; padding: 12px 16px; color: var(--text);
+      font-size: 14px; outline: none; transition: border-color .2s;
+    }
+    .url-input:focus { border-color: var(--primary); }
+    .url-input::placeholder { color: var(--text3); }
+
+    .btn {
+      padding: 12px 20px; border-radius: 10px; border: none;
+      font-size: 14px; font-weight: 600; cursor: pointer; transition: all .15s;
+      display: inline-flex; align-items: center; gap: 8px;
+    }
+    .btn:disabled { opacity: .5; cursor: not-allowed; }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover:not(:disabled) { background: var(--primary-light); }
+    .btn-ghost { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+    .btn-ghost:hover:not(:disabled) { border-color: var(--primary); color: var(--primary-light); }
+    .btn-success { background: var(--success); color: #fff; }
+    .btn-success:hover:not(:disabled) { filter: brightness(1.1); }
+    .fetch-btn { width: 100%; justify-content: center; }
+
+    /* Spinner */
+    .spinner {
+      width: 18px; height: 18px; border: 2px solid rgba(255,255,255,.3);
+      border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Media info */
+    #media-card { display: none; }
+    #media-card.show { display: block; }
+
+    .media-thumb { width: 100%; max-height: 220px; object-fit: cover; border-radius: 10px; margin-bottom: 16px; display: none; }
+    .media-thumb.show { display: block; }
+
+    .media-title { font-size: 17px; font-weight: 700; color: var(--text); margin: 8px 0 4px; line-height: 1.4; }
+    .media-sub { font-size: 13px; color: var(--text2); }
+
+    /* Quality selector */
+    .quality-row { display: flex; gap: 8px; margin: 16px 0 0; }
+    .quality-btn { flex: 1; padding: 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface2); color: var(--text2); font-size: 13px; font-weight: 600; cursor: pointer; transition: all .15s; }
+    .quality-btn.active { background: rgba(124,58,237,.15); border-color: var(--primary); color: var(--primary-light); }
+    .quality-btn:hover:not(.active) { border-color: var(--text3); }
+
+    /* Progress */
+    #progress-section { display: none; margin-top: 16px; }
+    #progress-section.show { display: block; }
+    .progress-label { font-size: 13px; color: var(--text2); text-align: center; margin-bottom: 8px; }
+    .progress-track { height: 6px; background: var(--surface2); border-radius: 3px; overflow: hidden; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, var(--primary), var(--primary-light)); border-radius: 3px; width: 0%; transition: width .3s; }
+
+    /* Done state */
+    #done-section { display: none; text-align: center; margin-top: 16px; }
+    #done-section.show { display: block; }
+    .done-icon { font-size: 36px; color: var(--success); margin-bottom: 8px; }
+    .done-title { font-size: 18px; font-weight: 700; color: var(--success); margin-bottom: 4px; }
+    .done-sub { font-size: 13px; color: var(--text2); margin-bottom: 16px; }
+
+    /* Error */
+    #error-card { display: none; }
+    #error-card.show { display: block; background: rgba(239,68,68,.08); border-color: rgba(239,68,68,.3); }
+    .error-title { font-size: 16px; font-weight: 700; color: var(--error); margin-bottom: 6px; }
+    .error-msg { font-size: 13px; color: var(--text2); margin-bottom: 14px; line-height: 1.5; }
+
+    /* Footer */
+    footer { text-align: center; padding: 24px; color: var(--text3); font-size: 12px; }
+
+    /* Responsive */
+    @media (max-width: 500px) {
+      .hero h1 { font-size: 38px; }
+      .input-row { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="titlebar">
+  <span class="title">Skoros</span>
+</div>
+
+<main>
+  <div class="hero">
+    <h1>skoros</h1>
+    <p>Download videos &amp; images from social media</p>
+  </div>
+
+  <div class="platforms" id="platforms">
+    <span class="badge" style="color:#FF0050;border-color:#FF005040;background:#FF005012">♪ TikTok</span>
+    <span class="badge" style="color:#E1306C;border-color:#E1306C40;background:#E1306C12">◈ Instagram</span>
+    <span class="badge" style="color:#FF0000;border-color:#FF000040;background:#FF000012">▶ YouTube</span>
+    <span class="badge" style="color:#1877F2;border-color:#1877F240;background:#1877F212">f Facebook</span>
+    <span class="badge" style="color:#1DA1F2;border-color:#1DA1F240;background:#1DA1F212">✕ Twitter/X</span>
+  </div>
+
+  <div id="status-bar">
+    <div class="status-dot" id="status-dot"></div>
+    <span id="status-msg">Connecting to backend...</span>
+  </div>
+
+  <div class="card">
+    <div class="card-label">Paste a link from TikTok, Instagram, YouTube, Facebook or Twitter/X</div>
+    <div class="input-row">
+      <input
+        type="url"
+        class="url-input"
+        id="url-input"
+        placeholder="https://www.tiktok.com/..."
+        autocomplete="off"
+        spellcheck="false"
+      />
+    </div>
+    <button class="btn btn-primary fetch-btn" id="fetch-btn" onclick="handleFetch()">
+      Check Link
+    </button>
+  </div>
+
+  <div class="card" id="error-card">
+    <div class="error-title">Something went wrong</div>
+    <div class="error-msg" id="error-msg"></div>
+    <button class="btn btn-ghost" onclick="handleFetch()">Try Again</button>
+  </div>
+
+  <div class="card" id="media-card">
+    <img id="media-thumb" class="media-thumb" alt="thumbnail" />
+    <div id="platform-badge-container"></div>
+    <div class="media-title" id="media-title"></div>
+    <div class="media-sub" id="media-sub"></div>
+
+    <div class="quality-row" id="quality-row">
+      <button class="quality-btn active" data-q="best" onclick="selectQuality(this)">Best</button>
+      <button class="quality-btn" data-q="medium" onclick="selectQuality(this)">720p</button>
+      <button class="quality-btn" data-q="low" onclick="selectQuality(this)">480p</button>
+    </div>
+
+    <div id="progress-section">
+      <div class="progress-label" id="progress-label">Downloading... 0%</div>
+      <div class="progress-track">
+        <div class="progress-fill" id="progress-fill"></div>
+      </div>
+    </div>
+
+    <div id="done-section">
+      <div class="done-icon">✓</div>
+      <div class="done-title">Saved!</div>
+      <div class="done-sub" id="done-sub"></div>
+      <button class="btn btn-ghost" onclick="reset()">Download Another</button>
+    </div>
+
+    <div id="download-btn-wrap" style="margin-top:16px">
+      <button class="btn btn-success fetch-btn" id="download-btn" onclick="handleDownload()">
+        Download
+      </button>
+    </div>
+  </div>
+</main>
+
+<footer>skoros — save anything, anywhere</footer>
+
+<script>
+  let backendUrl = 'http://localhost:8000';
+  let currentInfo = null;
+  let selectedQuality = 'best';
+  const isDesktop = typeof window.skoros !== 'undefined';
+
+  // --- Init ---
+  async function init() {
+    if (isDesktop) {
+      document.body.classList.add('desktop');
+      backendUrl = await window.skoros.getBackendUrl();
+      showStatus('Waiting for backend...', 'warn');
+
+      window.skoros.onBackendReady(() => {
+        showStatus('Backend ready', 'ok');
+        setTimeout(() => hideStatus(), 3000);
+      });
+
+      window.skoros.onBackendError((msg) => {
+        showStatus(msg, 'err');
+      });
+
+      window.skoros.onDownloadProgress(({ percent }) => {
+        updateProgress(percent);
+      });
+    } else {
+      // Web mode — try to connect to backend
+      const ok = await checkHealth();
+      if (!ok) {
+        showStatus('Backend not found. Make sure the server is running on this machine.', 'err');
+      } else {
+        showStatus('Connected', 'ok');
+        setTimeout(() => hideStatus(), 2000);
+      }
+    }
+  }
+
+  async function checkHealth() {
+    try {
+      const r = await fetch(`${backendUrl}/health`);
+      return r.ok;
+    } catch { return false; }
+  }
+
+  function showStatus(msg, type) {
+    const bar = document.getElementById('status-bar');
+    const dot = document.getElementById('status-dot');
+    document.getElementById('status-msg').textContent = msg;
+    bar.classList.add('show');
+    dot.className = 'status-dot' + (type === 'ok' ? ' ok' : type === 'err' ? ' err' : '');
+  }
+
+  function hideStatus() {
+    document.getElementById('status-bar').classList.remove('show');
+  }
+
+  // --- Fetch info ---
+  async function handleFetch() {
+    const url = document.getElementById('url-input').value.trim();
+    if (!url) { alert('Please paste a URL first.'); return; }
+
+    setFetchBtnLoading(true);
+    hideError();
+    hideMediaCard();
+    currentInfo = null;
+
+    try {
+      const res = await fetch(`${backendUrl}/info`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.detail || 'Failed to fetch info');
+
+      currentInfo = json.data;
+      showMediaCard(currentInfo);
+    } catch (e) {
+      showError(e.message);
+    } finally {
+      setFetchBtnLoading(false);
+    }
+  }
+
+  function showMediaCard(info) {
+    document.getElementById('media-card').classList.add('show');
+
+    const thumb = document.getElementById('media-thumb');
+    if (info.thumbnail) {
+      thumb.src = info.thumbnail;
+      thumb.classList.add('show');
+    } else {
+      thumb.classList.remove('show');
+    }
+
+    document.getElementById('media-title').textContent = info.title || 'Unknown title';
+    const subs = [];
+    if (info.uploader) subs.push('by ' + info.uploader);
+    if (info.duration) subs.push(formatDuration(info.duration));
+    document.getElementById('media-sub').textContent = subs.join(' · ');
+
+    // Platform badge
+    const pbContainer = document.getElementById('platform-badge-container');
+    const colors = {
+      TikTok: '#FF0050', Instagram: '#E1306C', YouTube: '#FF0000',
+      Facebook: '#1877F2', 'Twitter/X': '#1DA1F2',
+    };
+    const icons = { TikTok: '♪', Instagram: '◈', YouTube: '▶', Facebook: 'f', 'Twitter/X': '✕' };
+    const p = info.platform;
+    const c = colors[p] || '#7C3AED';
+    const ic = icons[p] || '●';
+    pbContainer.innerHTML = `<span class="badge" style="color:${c};border-color:${c}40;background:${c}12">${ic} ${p}</span>`;
+
+    // Quality row
+    const qRow = document.getElementById('quality-row');
+    qRow.style.display = info.is_image ? 'none' : 'flex';
+
+    document.getElementById('download-btn').textContent = info.is_image ? 'Save Image' : 'Download Video';
+
+    hideDone();
+    hideProgress();
+    document.getElementById('download-btn-wrap').style.display = 'block';
+  }
+
+  function hideMediaCard() {
+    document.getElementById('media-card').classList.remove('show');
+  }
+
+  function showError(msg) {
+    document.getElementById('error-msg').textContent = msg;
+    document.getElementById('error-card').classList.add('show');
+  }
+
+  function hideError() {
+    document.getElementById('error-card').classList.remove('show');
+  }
+
+  function selectQuality(btn) {
+    document.querySelectorAll('.quality-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    selectedQuality = btn.dataset.q;
+  }
+
+  // --- Download ---
+  async function handleDownload() {
+    if (!currentInfo) return;
+    const url = document.getElementById('url-input').value.trim();
+
+    document.getElementById('download-btn-wrap').style.display = 'none';
+    showProgress();
+
+    const payload = {
+      url,
+      quality: selectedQuality,
+      media_type: currentInfo.is_image ? 'image' : 'video',
+    };
+
+    if (isDesktop) {
+      // Desktop: let Electron handle saving with a file dialog
+      const ext = currentInfo.is_image ? 'jpg' : 'mp4';
+      const filename = sanitize(currentInfo.title || 'download') + '.' + ext;
+
+      const result = await window.skoros.downloadFile({
+        url,
+        filename,
+        backendPayload: payload,
+      });
+
+      if (result.success) {
+        showDone(result.path);
+      } else if (result.reason !== 'cancelled') {
+        showDownloadError(result.reason);
+      } else {
+        // user cancelled dialog
+        hideProgress();
+        document.getElementById('download-btn-wrap').style.display = 'block';
+      }
+    } else {
+      // Web mode: trigger browser download
+      try {
+        const res = await fetch(`${backendUrl}/download`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+
+        if (!res.ok) {
+          const j = await res.json().catch(() => ({}));
+          throw new Error(j.detail || 'Download failed');
+        }
+
+        // Stream download via blob
+        const contentDisp = res.headers.get('content-disposition') || '';
+        let filename = 'skoros_download';
+        const match = contentDisp.match(/filename="?([^"]+)"?/);
+        if (match) filename = match[1];
+
+        const blob = await res.blob();
+        const objUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = objUrl;
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(objUrl);
+
+        showDone(filename);
+      } catch (e) {
+        showDownloadError(e.message);
+      }
+    }
+  }
+
+  function showDownloadError(msg) {
+    hideProgress();
+    document.getElementById('download-btn-wrap').style.display = 'block';
+    showError(msg);
+  }
+
+  function showProgress() {
+    document.getElementById('progress-section').classList.add('show');
+    updateProgress(0);
+  }
+
+  function hideProgress() {
+    document.getElementById('progress-section').classList.remove('show');
+  }
+
+  function updateProgress(frac) {
+    const pct = Math.round(frac * 100);
+    document.getElementById('progress-label').textContent = `Downloading... ${pct}%`;
+    document.getElementById('progress-fill').style.width = pct + '%';
+  }
+
+  function showDone(pathOrFilename) {
+    hideProgress();
+    document.getElementById('done-section').classList.add('show');
+    document.getElementById('done-sub').textContent = pathOrFilename;
+  }
+
+  function hideDone() {
+    document.getElementById('done-section').classList.remove('show');
+  }
+
+  function reset() {
+    document.getElementById('url-input').value = '';
+    currentInfo = null;
+    hideMediaCard();
+    hideError();
+    hideDone();
+    hideProgress();
+  }
+
+  function setFetchBtnLoading(loading) {
+    const btn = document.getElementById('fetch-btn');
+    btn.disabled = loading;
+    btn.innerHTML = loading
+      ? '<div class="spinner"></div>'
+      : 'Check Link';
+  }
+
+  function formatDuration(sec) {
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return `${m}:${String(s).padStart(2, '0')}`;
+  }
+
+  function sanitize(name) {
+    return name.replace(/[<>:"/\\|?*]/g, '').trim().substring(0, 80) || 'download';
+  }
+
+  // Enter key on input
+  document.getElementById('url-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') handleFetch();
+  });
+
+  init();
+</script>
+</body>
+</html>

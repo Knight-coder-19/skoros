@@ -1,0 +1,14 @@
+# Python
+backend/venv/
+backend/__pycache__/
+backend/*.pyc
+backend/cookies.txt
+/tmp/skoros_downloads/
+
+# Node
+desktop/node_modules/
+app/node_modules/
+
+# Misc
+.DS_Store
+*.log

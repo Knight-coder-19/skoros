@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Skoros — Download videos from social media</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0A0A0F; --surface: #13131A; --surface2: #1C1C28; --border: #2A2A3A;
+      --primary: #7C3AED; --primary-light: #9D5FFF; --success: #10B981;
+      --error: #EF4444; --text: #F1F1F5; --text2: #9090A0; --text3: #55556A;
+    }
+    body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; min-height: 100vh; }
+    nav { display: flex; align-items: center; justify-content: space-between; padding: 16px 32px; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--bg); z-index: 10; }
+    .nav-logo { font-size: 22px; font-weight: 800; letter-spacing: -1px; }
+    .nav-logo span { color: var(--primary-light); }
+    .nav-links { display: flex; gap: 24px; }
+    .nav-links a { color: var(--text2); text-decoration: none; font-size: 14px; }
+    .hero { text-align: center; padding: 80px 16px 48px; max-width: 700px; margin: 0 auto; }
+    .hero h1 { font-size: 64px; font-weight: 800; letter-spacing: -4px; line-height: 1; background: linear-gradient(135deg, #fff 20%, #9D5FFF 80%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 16px; }
+    .hero p { color: var(--text2); font-size: 18px; line-height: 1.6; }
+    .platforms { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin: 32px auto; max-width: 600px; padding: 0 16px; }
+    .badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 99px; font-size: 13px; font-weight: 600; border: 1px solid; }
+    .downloader { max-width: 640px; margin: 0 auto 80px; padding: 0 16px; }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 28px; margin-bottom: 16px; }
+    .card-label { font-size: 14px; color: var(--text2); margin-bottom: 12px; }
+    .url-input { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; color: var(--text); font-size: 15px; outline: none; transition: border-color .2s; margin-bottom: 14px; }
+    .url-input:focus { border-color: var(--primary); }
+    .url-input::placeholder { color: var(--text3); }
+    .btn { padding: 14px 24px; border-radius: 12px; border: none; font-size: 15px; font-weight: 600; cursor: pointer; transition: all .15s; display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%; }
+    .btn:disabled { opacity: .5; cursor: not-allowed; }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover:not(:disabled) { background: var(--primary-light); }
+    .btn-success { background: var(--success); color: #fff; }
+    .btn-audio { background: #1e1e2e; color: #a78bfa; border: 1px solid #4c1d95; }
+    .btn-audio:hover:not(:disabled) { background: #2d1f5e; }
+    .btn-ghost { background: var(--surface2); color: var(--text); border: 1px solid var(--border); width: auto; padding: 10px 24px; }
+    .spinner { width: 20px; height: 20px; border: 2px solid rgba(255,255,255,.3); border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .hidden { display: none !important; }
+    .media-thumb { width: 100%; max-height: 240px; object-fit: cover; border-radius: 10px; margin-bottom: 16px; }
+    .media-title { font-size: 18px; font-weight: 700; margin: 8px 0 4px; line-height: 1.4; }
+    .media-sub { font-size: 13px; color: var(--text2); margin-bottom: 16px; }
+    .section-label { font-size: 12px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 8px; }
+    .quality-row { display: flex; gap: 8px; margin-bottom: 16px; }
+    .q-btn { flex: 1; padding: 10px 6px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface2); color: var(--text2); font-size: 12px; font-weight: 600; cursor: pointer; transition: all .15s; line-height: 1.4; text-align: center; }
+    .q-btn .q-res { display: block; font-size: 13px; color: var(--text); }
+    .q-btn .q-ext { display: block; font-size: 11px; color: var(--text3); margin-top: 2px; }
+    .q-btn.active { background: rgba(124,58,237,.15); border-color: var(--primary); }
+    .q-btn.active .q-res { color: var(--primary-light); }
+    .q-btn.active .q-ext { color: #7c5cbf; }
+    .filename-wrap { display: flex; align-items: center; background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; padding: 0 14px; margin-bottom: 12px; transition: border-color .2s; }
+    .filename-wrap:focus-within { border-color: var(--primary); }
+    .filename-input { flex: 1; background: transparent; border: none; outline: none; color: var(--text); font-size: 14px; padding: 12px 0; min-width: 0; }
+    .filename-ext { color: var(--text3); font-size: 13px; font-weight: 600; white-space: nowrap; padding-left: 4px; user-select: none; }
+    .dl-row { display: flex; gap: 10px; }
+    .dl-row .btn { flex: 1; }
+    .progress-label { font-size: 14px; color: var(--text2); text-align: center; margin-bottom: 8px; }
+    .progress-track { height: 6px; background: var(--surface2); border-radius: 3px; overflow: hidden; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, var(--primary), var(--primary-light)); width: 0%; border-radius: 3px; transition: width .3s ease; }
+    .done-icon { font-size: 40px; color: var(--success); text-align: center; }
+    .done-title { font-size: 20px; font-weight: 700; color: var(--success); margin: 8px 0 4px; text-align: center; }
+    .done-sub { font-size: 13px; color: var(--text2); margin-bottom: 16px; text-align: center; }
+    .done-actions { display: flex; justify-content: center; }
+    .error-title { font-size: 16px; font-weight: 700; color: var(--error); margin-bottom: 6px; }
+    .error-msg { font-size: 14px; color: var(--text2); margin-bottom: 16px; line-height: 1.5; }
+    .error-card { background: rgba(239,68,68,.08); border-color: rgba(239,68,68,.3); }
+    .features { max-width: 1000px; margin: 0 auto 80px; padding: 0 24px; }
+    .features h2 { font-size: 36px; font-weight: 800; text-align: center; margin-bottom: 48px; letter-spacing: -1px; }
+    .features-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; }
+    .feature-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 28px; }
+    .feature-icon { width: 48px; height: 48px; border-radius: 12px; background: rgba(124,58,237,.12); border: 1px solid rgba(124,58,237,.2); display: flex; align-items: center; justify-content: center; margin-bottom: 20px; color: var(--primary-light); }
+    .feature-title { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+    .feature-desc { font-size: 14px; color: var(--text2); line-height: 1.6; }
+    footer { border-top: 1px solid var(--border); padding: 40px 32px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; }
+    .footer-logo { font-size: 18px; font-weight: 800; letter-spacing: -1px; }
+    .footer-copy { font-size: 13px; color: var(--text3); }
+    @media (max-width: 640px) { .hero h1 { font-size: 44px; letter-spacing: -2px; } nav { padding: 12px 16px; } .nav-links { display: none; } .dl-row { flex-direction: column; } }
+  </style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-logo">skoros<span>.</span></div>
+  <div class="nav-links">
+    <a href="#downloader">Download</a>
+    <a href="#features">Features</a>
+  </div>
+</nav>
+
+<div class="hero">
+  <h1>Download anything.</h1>
+  <p>Save videos and images from TikTok, Instagram, YouTube, Facebook and Twitter &mdash; fast, free, no signup.</p>
+</div>
+
+<div class="platforms">
+  <span class="badge" style="color:#FF0050;border-color:#FF005040;background:#FF005012">&#9834; TikTok</span>
+  <span class="badge" style="color:#E1306C;border-color:#E1306C40;background:#E1306C12">&#9672; Instagram</span>
+  <span class="badge" style="color:#FF0000;border-color:#FF000040;background:#FF000012">&#9654; YouTube</span>
+  <span class="badge" style="color:#1877F2;border-color:#1877F240;background:#1877F212">f Facebook</span>
+  <span class="badge" style="color:#1DA1F2;border-color:#1DA1F240;background:#1DA1F212">&#10005; Twitter/X</span>
+</div>
+
+<div class="downloader" id="downloader">
+  <div class="card" id="input-card">
+    <div class="card-label">Paste a link and hit Check</div>
+    <input type="url" class="url-input" id="url-input" placeholder="https://www.tiktok.com/..." autocomplete="off" spellcheck="false" />
+    <button class="btn btn-primary" id="fetch-btn" onclick="handleFetch()">Check Link</button>
+  </div>
+
+  <div class="card error-card hidden" id="error-card">
+    <div class="error-title">Something went wrong</div>
+    <div class="error-msg" id="error-msg"></div>
+    <button class="btn btn-ghost" onclick="retryFetch()">Try Again</button>
+  </div>
+
+  <div class="card hidden" id="media-card">
+    <img id="media-thumb" class="media-thumb hidden" alt="" loading="lazy" />
+    <div id="platform-badge"></div>
+    <div class="media-title" id="media-title"></div>
+    <div class="media-sub" id="media-sub"></div>
+
+    <div id="quality-section" class="hidden">
+      <div class="section-label">Video quality</div>
+      <div class="quality-row">
+        <button class="q-btn active" data-q="best" onclick="selectQ(this)"><span class="q-res">Best (4K)</span><span class="q-ext">.mp4</span></button>
+        <button class="q-btn" data-q="medium" onclick="selectQ(this)"><span class="q-res">HD (720p)</span><span class="q-ext">.mp4</span></button>
+        <button class="q-btn" data-q="low" onclick="selectQ(this)"><span class="q-res">SD (480p)</span><span class="q-ext">.mp4</span></button>
+      </div>
+    </div>
+
+    <div id="progress-section" class="hidden" style="margin-bottom:16px">
+      <div class="progress-label" id="progress-label">Processing...</div>
+      <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
+    </div>
+
+    <div id="done-section" class="hidden">
+      <div class="done-icon">&#10003;</div>
+      <div class="done-title" id="done-title">Saved!</div>
+      <div class="done-sub" id="done-sub">Check your Downloads folder.</div>
+      <div class="done-actions"><button class="btn btn-ghost" onclick="reset()">Download Another</button></div>
+    </div>
+
+    <div id="download-wrap">
+      <div class="section-label" style="margin-bottom:8px">Save as</div>
+      <div class="filename-wrap">
+        <input class="filename-input" id="filename-input" type="text" spellcheck="false" autocomplete="off" placeholder="filename" />
+        <span class="filename-ext" id="filename-ext">.mp4</span>
+      </div>
+      <div class="dl-row" id="video-btns">
+        <button class="btn btn-success" onclick="setExt('.mp4'); handleDownload('video')">&#9654; Download Video</button>
+        <button class="btn btn-audio" onclick="setExt('.mp3'); handleDownload('audio')">&#9836; Save as Music</button>
+      </div>
+      <div id="image-btn" class="hidden">
+        <button class="btn btn-success" onclick="handleDownload('image')">&#8595; Save Image</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<section class="features" id="features">
+  <h2>Everything you need</h2>
+  <div class="features-grid">
+    <div class="feature-card">
+      <div class="feature-icon">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+      </div>
+      <div class="feature-title">Fast &amp; Reliable</div>
+      <div class="feature-desc">Powered by yt-dlp, the most battle-tested downloader engine.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 3H8"/><path d="M12 3v4"/></svg>
+      </div>
+      <div class="feature-title">5 Platforms</div>
+      <div class="feature-desc">TikTok, Instagram, YouTube, Facebook and Twitter/X.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg>
+      </div>
+      <div class="feature-title">Works Everywhere</div>
+      <div class="feature-desc">Desktop app, Android &amp; iOS app, and this website.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+      </div>
+      <div class="feature-title">Quality Options</div>
+      <div class="feature-desc">Best (4K), HD 720p, or SD 480p — all as .mp4 files.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+      </div>
+      <div class="feature-title">Audio Extraction</div>
+      <div class="feature-desc">Save any video as MP3 — great for YouTube music.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+      </div>
+      <div class="feature-title">Photos Too</div>
+      <div class="feature-desc">Save images from Instagram and other platforms.</div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="footer-logo">skoros.</div>
+  <div class="footer-copy">&copy; 2026 Skoros. Save anything, anywhere.</div>
+</footer>
+
+
+<script>
+  const BACKEND_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+    ? 'http://localhost:8000'
+    : 'https://api.skoros.app';
+
+  let mediaInfo = null;
+  let quality = 'best';
+  let fetchTimer = null;
+
+  document.getElementById('url-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') handleFetch();
+  });
+
+  async function handleFetch() {
+    const url = document.getElementById('url-input').value.trim();
+    if (!url) { alert('Please paste a URL first.'); return; }
+    setFetchBusy(true);
+    hide('error-card');
+    hide('media-card');
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 120000);
+      const res = await fetch(BACKEND_URL + '/info', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url }),
+        signal: controller.signal,
+      });
+      clearTimeout(timer);
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.detail || 'Could not fetch media info.');
+      mediaInfo = j.data;
+      showMediaCard(mediaInfo);
+    } catch (e) {
+      showError(e.name === 'AbortError' ? 'Request timed out.' : e.message);
+    } finally {
+      setFetchBusy(false);
+    }
+  }
+
+  function retryFetch() { hide('error-card'); handleFetch(); }
+
+  async function handleDownload(mediaType) {
+    if (!mediaInfo) return;
+    const url = document.getElementById('url-input').value.trim();
+    const extMap = { video: '.mp4', audio: '.mp3', image: '.jpg' };
+    const doneMsg = {
+      video: ['Video saved!', 'Check your Downloads folder for the .mp4 file.'],
+      audio: ['Music saved!', 'Check your Downloads folder for the .mp3 file.'],
+      image: ['Image saved!', 'Check your Downloads folder for the .jpg file.'],
+    };
+    const labelMap = { video: 'Downloading video', audio: 'Extracting audio', image: 'Saving image' };
+
+    const customName = (document.getElementById('filename-input').value.trim() || 'download')
+      .replace(/[<>:"/\\|?*]/g, '').replace(/\s+/g, '_');
+    const customFilename = customName + extMap[mediaType];
+    const params = new URLSearchParams({ url, quality, media_type: mediaType, custom_filename: customFilename });
+    const downloadUrl = BACKEND_URL + '/download?' + params.toString();
+
+    hide('download-wrap');
+    hide('done-section');
+    show('progress-section');
+
+    let pct = 0;
+    const ticker = setInterval(() => {
+      const step = pct < 30 ? 5 : pct < 60 ? 2.5 : pct < 80 ? 1 : 0.3;
+      pct = Math.min(pct + step, 92);
+      setProgress(pct, labelMap[mediaType] + '... ' + Math.round(pct) + '%');
+    }, 300);
+
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 180000);
+      const res = await fetch(downloadUrl, { signal: controller.signal });
+      clearTimeout(timeout);
+      clearInterval(ticker);
+
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j.detail || 'Download failed.');
+      }
+
+      const blob = await res.blob();
+      setProgress(100, 'Done!');
+
+      // Trigger browser save dialog
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = customFilename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+
+      document.getElementById('done-title').textContent = doneMsg[mediaType][0];
+      document.getElementById('done-sub').textContent = doneMsg[mediaType][1];
+      setTimeout(() => { hide('progress-section'); show('done-section'); }, 400);
+
+    } catch (e) {
+      clearInterval(ticker);
+      hide('progress-section');
+      show('download-wrap');
+      if (e.name === 'AbortError') {
+        showError('Download timed out. The file may be too large or the server is busy.');
+      } else {
+        showError(e.message);
+      }
+    }
+  }
+
+  function showMediaCard(d) {
+    const thumb = document.getElementById('media-thumb');
+    if (d.thumbnail) { thumb.src = d.thumbnail; show('media-thumb'); } else hide('media-thumb');
+
+    const colors = { TikTok:'#FF0050', Instagram:'#E1306C', YouTube:'#FF0000', Facebook:'#1877F2', 'Twitter/X':'#1DA1F2' };
+    const icons  = { TikTok:'&#9834;', Instagram:'&#9672;', YouTube:'&#9654;', Facebook:'f', 'Twitter/X':'&#10005;' };
+    const c = colors[d.platform] || '#7C3AED';
+    document.getElementById('platform-badge').innerHTML =
+      '<span class="badge" style="color:' + c + ';border-color:' + c + '40;background:' + c + '12">' + (icons[d.platform]||'&#9679;') + ' ' + d.platform + '</span>';
+
+    document.getElementById('media-title').textContent = d.title || '';
+    const slug = (d.title || 'download').replace(/[<>:"/\\|?*]/g, '').replace(/\s+/g, '_').substring(0, 80);
+    document.getElementById('filename-input').value = slug;
+    document.getElementById('filename-ext').textContent = d.is_image ? '.jpg' : '.mp4';
+
+    const parts = [];
+    if (d.uploader) parts.push('by ' + d.uploader);
+    if (d.duration) { const m = Math.floor(d.duration/60), s = d.duration%60; parts.push(m+':'+String(s).padStart(2,'0')); }
+    document.getElementById('media-sub').textContent = parts.join(' · ');
+
+    if (d.is_image) { hide('quality-section'); hide('video-btns'); show('image-btn'); }
+    else { show('quality-section'); show('video-btns'); hide('image-btn'); }
+
+    hide('progress-section'); hide('done-section');
+    show('download-wrap'); show('media-card');
+  }
+
+  function setExt(ext) { document.getElementById('filename-ext').textContent = ext; }
+
+  function showError(msg) { document.getElementById('error-msg').textContent = msg; show('error-card'); }
+
+  function selectQ(btn) {
+    document.querySelectorAll('.q-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    quality = btn.dataset.q;
+  }
+
+  function setProgress(pct, label) {
+    document.getElementById('progress-fill').style.width = pct + '%';
+    document.getElementById('progress-label').textContent = label;
+  }
+
+  function setFetchBusy(busy) {
+    const btn = document.getElementById('fetch-btn');
+    btn.disabled = busy;
+    if (busy) {
+      let secs = 0;
+      btn.innerHTML = '<div class="spinner"></div> Fetching info...';
+      fetchTimer = setInterval(() => {
+        secs++;
+        const msg = secs < 5 ? 'Fetching info...' : secs < 10 ? 'Contacting server...' : 'Still working... (' + secs + 's)';
+        btn.innerHTML = '<div class="spinner"></div> ' + msg;
+      }, 1000);
+    } else {
+      clearInterval(fetchTimer);
+      btn.innerHTML = 'Check Link';
+    }
+  }
+
+  function reset() {
+    document.getElementById('url-input').value = '';
+    mediaInfo = null;
+    hide('media-card'); hide('error-card');
+  }
+
+  function show(id) { document.getElementById(id).classList.remove('hidden'); }
+  function hide(id) { document.getElementById(id).classList.add('hidden'); }
+</script>
+</body>
+</html>
