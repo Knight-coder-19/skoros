@@ -66,15 +66,17 @@ async def get_info(req: InfoRequest):
         raise HTTPException(status_code=408, detail="Request timed out. Try again.")
     except Exception as e:
         error_msg = str(e)
-        if "private" in error_msg.lower() or "login" in error_msg.lower() or "age-restricted" in error_msg.lower():
-            raise HTTPException(status_code=403, detail="This content is private or requires login.")
+        platform = detect_platform(url)
+        if "age-restricted" in error_msg.lower():
+            raise HTTPException(status_code=403, detail="This video is age-restricted and cannot be downloaded.")
         if "Cannot parse" in error_msg or "parse data" in error_msg:
-            platform = detect_platform(url)
             if platform == "Facebook":
-                raise HTTPException(status_code=422, detail="This Facebook video is not accessible. It may be a private reel, region-locked, or require a Facebook login. Only public Facebook videos can be downloaded.")
+                raise HTTPException(status_code=422, detail="This Facebook video is not accessible. It may be a private reel, region-locked, or require login.")
             raise HTTPException(status_code=422, detail="This link could not be parsed. Try copying the clean URL from your browser.")
-        if "login" in error_msg.lower() or "cookie" in error_msg.lower():
-            raise HTTPException(status_code=403, detail="This content requires a Facebook/Instagram login. Only public posts can be downloaded.")
+        if "private" in error_msg.lower() or "cookie" in error_msg.lower():
+            raise HTTPException(status_code=403, detail=f"This {platform or 'content'} is private or requires login. Only public posts can be downloaded.")
+        if "login" in error_msg.lower() and platform in ("Instagram", "Facebook"):
+            raise HTTPException(status_code=403, detail=f"This {platform} post requires login. Only public posts can be downloaded.")
         raise HTTPException(status_code=500, detail=f"Failed to fetch info: {error_msg}")
 
 
