@@ -73,10 +73,12 @@ async def get_info(req: InfoRequest):
             if platform == "Facebook":
                 raise HTTPException(status_code=422, detail="This Facebook video is not accessible. It may be a private reel, region-locked, or require login.")
             raise HTTPException(status_code=422, detail="This link could not be parsed. Try copying the clean URL from your browser.")
-        if "private" in error_msg.lower() or "cookie" in error_msg.lower():
-            raise HTTPException(status_code=403, detail=f"This {platform or 'content'} is private or requires login. Only public posts can be downloaded.")
-        if "login" in error_msg.lower() and platform in ("Instagram", "Facebook"):
-            raise HTTPException(status_code=403, detail=f"This {platform} post requires login. Only public posts can be downloaded.")
+        if "cookie" in error_msg.lower() or ("login" in error_msg.lower() and platform in ("Instagram", "Facebook")):
+            raise HTTPException(status_code=403, detail=f"This {platform or 'content'} post requires login. Only public posts can be downloaded.")
+        if "private" in error_msg.lower():
+            raise HTTPException(status_code=403, detail=f"This {platform or 'content'} is private. Only public content can be downloaded.")
+        if "confirm" in error_msg.lower() or "bot" in error_msg.lower() or "sign in" in error_msg.lower():
+            raise HTTPException(status_code=403, detail="YouTube is blocking this request. Try a different video or try again later.")
         raise HTTPException(status_code=500, detail=f"Failed to fetch info: {error_msg}")
 
 

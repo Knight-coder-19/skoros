@@ -89,7 +89,7 @@ def get_ydl_opts(output_path: str, quality: str = "best") -> dict:
         "http_headers": _base_headers(),
         "extractor_retries": 3,
         "socket_timeout": 15,
-        "extractor_args": {"youtube": {"player_client": ["android", "web"]}},
+        "extractor_args": {"youtube": {"player_client": ["android", "tv_embedded", "web"]}},
     }
     cookie = _cookie_opt()
     if cookie:
@@ -108,7 +108,7 @@ def get_image_opts(output_path: str) -> dict:
         "http_headers": _base_headers(),
         "extractor_retries": 3,
         "socket_timeout": 15,
-        "extractor_args": {"youtube": {"player_client": ["android", "web"]}},
+        "extractor_args": {"youtube": {"player_client": ["android", "tv_embedded", "web"]}},
     }
     cookie = _cookie_opt()
     if cookie:
@@ -132,7 +132,7 @@ def get_audio_opts(output_path: str) -> dict:
         "http_headers": _base_headers(),
         "extractor_retries": 3,
         "socket_timeout": 15,
-        "extractor_args": {"youtube": {"player_client": ["android", "web"]}},
+        "extractor_args": {"youtube": {"player_client": ["android", "tv_embedded", "web"]}},
     }
     cookie = _cookie_opt()
     if cookie:
@@ -152,7 +152,7 @@ async def get_media_info(url: str) -> dict:
         "extractor_retries": 5,
         "socket_timeout": 15,
         "ignoreerrors": False,
-        "extractor_args": {"youtube": {"player_client": ["android", "web"]}},
+        "extractor_args": {"youtube": {"player_client": ["android", "tv_embedded", "web"]}},
     }
     cookie = _cookie_opt()
     if cookie:
