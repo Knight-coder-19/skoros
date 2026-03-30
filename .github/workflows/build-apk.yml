@@ -17,8 +17,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
-          cache-dependency-path: app/package-lock.json
 
       - name: Setup Java 17
         uses: actions/setup-java@v4
@@ -34,7 +32,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: app
-        run: npm ci --legacy-peer-deps
+        run: npm install --legacy-peer-deps
 
       - name: Create assets directory
         run: mkdir -p app/android/app/src/main/assets
