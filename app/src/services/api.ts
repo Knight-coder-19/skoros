@@ -4,9 +4,7 @@ import axios from 'axios';
 // For Android emulator: http://10.0.2.2:8000
 // For iOS simulator: http://localhost:8000
 // For real device on same WiFi: http://YOUR_COMPUTER_IP:8000
-const BASE_URL = __DEV__
-  ? 'http://10.0.2.2:8000'  // Android emulator default
-  : 'https://your-production-server.com'; // set when deployed
+const BASE_URL = 'https://skoros.onrender.com';
 
 const api = axios.create({
   baseURL: BASE_URL,
