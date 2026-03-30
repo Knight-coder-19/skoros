@@ -82,7 +82,6 @@ def get_ydl_opts(output_path: str, quality: str = "best") -> dict:
         "no_warnings": True,
         "noprogress": True,
         "merge_output_format": "mp4",
-        "extractor_args": {"youtube": {"js_runtimes": ["node"]}},
         "postprocessors": [{
             "key": "FFmpegVideoConvertor",
             "preferedformat": "mp4",
@@ -150,7 +149,6 @@ async def get_media_info(url: str) -> dict:
         "extractor_retries": 5,
         "socket_timeout": 15,
         "ignoreerrors": False,
-        "extractor_args": {"youtube": {"js_runtimes": ["node"]}},
     }
     cookie = _cookie_opt()
     if cookie:
