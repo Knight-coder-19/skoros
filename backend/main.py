@@ -1,10 +1,12 @@
 from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel, HttpUrl
 from typing import Optional
 import os
 import asyncio
+import subprocess
+import shutil
 
 from downloader import (
     get_media_info,
@@ -93,51 +95,62 @@ async def download(req: DownloadRequest, background_tasks: BackgroundTasks):
         raise HTTPException(status_code=400, detail="Unsupported platform")
 
     try:
-        result = await asyncio.wait_for(
-            download_media(url, req.quality, req.media_type),
-            timeout=120
+        ytdlp_bin = shutil.which("yt-dlp") or str(
+            __import__("pathlib").Path(__file__).parent / ".venv/bin/yt-dlp"
         )
 
-        file_path = result["file_path"]
-        filename = result["filename"]
-
-        if not os.path.exists(file_path):
-            raise HTTPException(status_code=500, detail="Download failed - file not found")
-
-        background_tasks.add_task(cleanup_file, file_path)
-
-        ext = result.get("ext", "mp4")
-        media_type_map = {
-            "mp4": "video/mp4",
-            "webm": "video/webm",
-            "jpg": "image/jpeg",
-            "jpeg": "image/jpeg",
-            "png": "image/png",
-            "gif": "image/gif",
-            "mp3": "audio/mpeg",
-            "m4a": "audio/mp4",
+        quality_map = {
+            "best":   "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
+            "medium": "bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720]",
+            "low":    "bestvideo[height<=480][ext=mp4]+bestaudio[ext=m4a]/best[height<=480]",
         }
-        content_type = media_type_map.get(ext, "application/octet-stream")
+        fmt = quality_map.get(req.quality or "best", quality_map["best"])
 
-        safe_filename = filename.encode('ascii', 'ignore').decode('ascii')
-        return FileResponse(
-            path=file_path,
-            filename=safe_filename,
-            media_type=content_type,
-            headers={"Content-Disposition": f'attachment; filename="{safe_filename}"'}
+        if req.media_type == "audio":
+            fmt = "bestaudio/best"
+
+        cmd = [
+             ytdlp_bin,
+            "-f", fmt,
+            "--merge-output-format", "mp4",
+            "--no-part",
+            "-o", "-",
+            "--quiet",
+            url,
+        ]
+
+        process = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.DEVNULL,
         )
 
-    except asyncio.TimeoutError:
-        raise HTTPException(status_code=408, detail="Download timed out. The file may be too large.")
+        safe_title = url.split("/")[-1][:40].replace(" ", "_") or "download"
+        filename = f"{safe_title}.mp4"
+
+        async def stream_output():
+            try:
+                while True:
+                    chunk = await process.stdout.read(256 * 1024)
+                    if not chunk:
+                        break
+                    yield chunk
+            finally:
+                try:
+                    process.kill()
+                except Exception:
+                    pass
+
+        return StreamingResponse(
+            stream_output(),
+            media_type="video/mp4",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+
     except Exception as e:
         error_msg = str(e)
         if "Private" in error_msg or "login" in error_msg.lower():
             raise HTTPException(status_code=403, detail="This content is private or requires login.")
-        if "Cannot parse" in error_msg or "parse data" in error_msg:
-            p = detect_platform(url)
-            if p == "Facebook":
-                raise HTTPException(status_code=422, detail="This Facebook video is not accessible. It may be a private reel, region-locked, or require a Facebook login.")
-            raise HTTPException(status_code=422, detail="This link could not be parsed. Try the clean URL from your browser.")
         raise HTTPException(status_code=500, detail=f"Download failed: {error_msg}")
 
 
