@@ -18,6 +18,11 @@ INVIDIOUS_INSTANCES = [
     "https://yt.artemislena.eu",
     "https://iv.datura.network",
     "https://invidious.fdn.fr",
+    "https://invidious.nerdvpn.de",
+    "https://invidious.incogniweb.net",
+    "https://invidious.io.lol",
+    "https://inv.tux.pizza",
+    "https://invidious.perennialte.ch",
 ]
 
 SUPPORTED_DOMAINS = {
@@ -97,7 +102,7 @@ def _ydl_base_opts() -> dict:
         "noplaylist": True,
         "quiet": True,
         "no_warnings": True,
-        "extractor_args": {"youtube": {"player_client": ["ios", "tv_embedded", "android", "web"]}},
+        "extractor_args": {"youtube": {"player_client": ["ios", "tv_embedded", "android", "mweb", "web"]}},
     }
     cookie = _cookie_opt()
     if cookie:
