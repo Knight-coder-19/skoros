@@ -99,52 +99,67 @@ async def download(req: DownloadRequest, background_tasks: BackgroundTasks):
             __import__("pathlib").Path(__file__).parent / ".venv/bin/yt-dlp"
         )
 
-        quality_map = {
-            "best":   "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
-            "medium": "bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720]",
-            "low":    "bestvideo[height<=480][ext=mp4]+bestaudio[ext=m4a]/best[height<=480]",
-        }
-        fmt = quality_map.get(req.quality or "best", quality_map["best"])
+        import uuid, re as _re
+        job_id = str(uuid.uuid4())[:8]
+        out_file = f"/tmp/skoros_dl_{job_id}.%(ext)s"
 
         if req.media_type == "audio":
-            fmt = "bestaudio/best"
+            cmd = [
+                ytdlp_bin, "-f", "bestaudio/best",
+                "--extract-audio", "--audio-format", "mp3", "--audio-quality", "192K",
+                "--no-part", "-o", out_file, "--quiet", url,
+            ]
+            ext = "mp3"
+            mime = "audio/mpeg"
+        else:
+            quality_map = {
+                "best":   "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
+                "medium": "bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720]",
+                "low":    "bestvideo[height<=480][ext=mp4]+bestaudio[ext=m4a]/best[height<=480]",
+            }
+            fmt = quality_map.get(req.quality or "best", quality_map["best"])
+            cmd = [
+                ytdlp_bin, "-f", fmt, "--merge-output-format", "mp4",
+                "--no-part", "-o", out_file, "--quiet", url,
+            ]
+            ext = "mp4"
+            mime = "video/mp4"
 
-        cmd = [
-             ytdlp_bin,
-            "-f", fmt,
-            "--merge-output-format", "mp4",
-            "--no-part",
-            "-o", "-",
-            "--quiet",
-            url,
-        ]
-
-        process = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.DEVNULL,
+        proc = await asyncio.create_subprocess_exec(
+            *cmd, stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.PIPE
         )
+        _, stderr_output = await proc.communicate()
 
-        safe_title = url.split("/")[-1][:40].replace(" ", "_") or "download"
-        filename = f"{safe_title}.mp4"
+        import glob
+        matches = glob.glob(f"/tmp/skoros_dl_{job_id}.*")
+        if not matches:
+            err_detail = stderr_output.decode(errors="replace").strip()[-300:] if stderr_output else "no output"
+            raise HTTPException(status_code=500, detail=f"Download produced no output file. yt-dlp: {err_detail}")
+        out_path = matches[0]
+        ext = out_path.rsplit(".", 1)[-1]
+        mime = "audio/mpeg" if ext == "mp3" else "video/mp4"
 
-        async def stream_output():
+        file_size = os.path.getsize(out_path)
+
+        async def stream_file():
             try:
-                while True:
-                    chunk = await process.stdout.read(256 * 1024)
-                    if not chunk:
-                        break
-                    yield chunk
+                with open(out_path, "rb") as f:
+                    while chunk := f.read(256 * 1024):
+                        yield chunk
             finally:
                 try:
-                    process.kill()
+                    os.remove(out_path)
                 except Exception:
                     pass
 
+        safe_fn = _re.sub(r'[^\w\-.]', '_', os.path.basename(out_path))
         return StreamingResponse(
-            stream_output(),
-            media_type="video/mp4",
-            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+            stream_file(),
+            media_type=mime,
+            headers={
+                "Content-Disposition": f'attachment; filename="{safe_fn}"',
+                "Content-Length": str(file_size),
+            },
         )
 
     except Exception as e:
@@ -152,11 +167,6 @@ async def download(req: DownloadRequest, background_tasks: BackgroundTasks):
         if "Private" in error_msg or "login" in error_msg.lower():
             raise HTTPException(status_code=403, detail="This content is private or requires login.")
         raise HTTPException(status_code=500, detail=f"Download failed: {error_msg}")
-
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000, reload=False)
 
 
 @app.get("/download")
@@ -172,8 +182,12 @@ async def download_get(
     req = DownloadRequest(url=url, quality=quality, media_type=media_type)
     bt = background_tasks or BT()
     response = await download(req, bt)
-    # Override filename if user provided one
     if custom_filename and hasattr(response, "headers"):
         safe = custom_filename.encode('ascii', 'ignore').decode('ascii').replace('"', '').replace("'", "")
         response.headers["content-disposition"] = f'attachment; filename="{safe}"'
     return response
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000, reload=False)
