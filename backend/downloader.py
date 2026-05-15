@@ -75,10 +75,6 @@ def _to_invidious(url: str, instance: str) -> Optional[str]:
     return f"{instance}/watch?v={vid}" if vid else None
 
 
-def _is_blocked_error(msg: str) -> bool:
-    msg = msg.lower()
-    return any(k in msg for k in ["sign in", "login", "cookie", "bot", "confirm your age", "blocked", "unavailable"])
-
 
 def _cookie_opt() -> Optional[str]:
     return str(COOKIES_FILE) if COOKIES_FILE.exists() else None
@@ -201,11 +197,12 @@ async def get_media_info(url: str) -> dict:
         info = await loop.run_in_executor(None, _extract_info_sync, url)
         return _parse_info(info, url)
     except Exception as e:
-        if platform != "YouTube" or not _is_blocked_error(str(e)):
+        if platform != "YouTube":
             raise
+        direct_error = e
 
-    # YouTube blocked — try Invidious instances
-    last_error = None
+    # YouTube failed — always try Invidious instances
+    last_error = direct_error
     for instance in INVIDIOUS_INSTANCES:
         inv_url = _to_invidious(url, instance)
         if not inv_url:
@@ -258,11 +255,12 @@ async def download_media(url: str, quality: str = "best", media_type: str = "vid
     try:
         return await loop.run_in_executor(None, _download, url)
     except Exception as e:
-        if platform != "YouTube" or not _is_blocked_error(str(e)):
+        if platform != "YouTube":
             raise
+        direct_error = e
 
-    # YouTube blocked — try Invidious instances
-    last_error = None
+    # YouTube failed — always try Invidious instances
+    last_error = direct_error
     for instance in INVIDIOUS_INSTANCES:
         inv_url = _to_invidious(url, instance)
         if not inv_url:
